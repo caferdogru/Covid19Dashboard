@@ -1,0 +1,236 @@
+---
+title: "Coronavirus Data Visualizer"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(plotly)
+```
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+
+### 
+
+```{r}
+       country_url <- "https://api.covid19api.com/countries"
+       countries <- GET(country_url) %>% content("text") %>% fromJSON() %>% as.data.frame()
+       selectInput(inputId = "country", label = "Select a Country to Plot", choices = sort(countries$Country))
+
+ 
+
+
+
+```
+
+
+
+
+
+
+Row
+---------
+
+### Daily Cases and Recovereds
+
+```{r}
+
+ renderPlotly({
+  
+   
+
+        
+  country_url <- "https://api.covid19api.com/countries"
+  countries <- GET(country_url) %>% content("text") %>% fromJSON() %>% as.data.frame()
+        
+  country_slug <- countries[countries$Country == input$country,]$Slug
+        
+        
+  url <- paste0("https://api.covid19api.com/total/country/", country_slug)
+  info_df <- GET(url) %>% content("text") %>% fromJSON() %>% as.data.frame()
+  info_df$Daily_Confirmed <- NA
+  info_df[1,]$Daily_Confirmed <- 0
+  info_df$Daily_Deaths <- NA
+  info_df[1,]$Daily_Deaths <- 0
+  info_df$Daily_Recovered <- NA
+  info_df[1,]$Daily_Recovered <- 0
+  
+  daily_cases <- c()
+  daily_deaths <- c()
+  daily_recovered <- c()
+  for (i in seq(2, nrow(info_df))) {
+    daily_cases <- c(daily_cases, info_df[i,]$Confirmed - info_df[i-1,]$Confirmed)
+    daily_deaths <- c(daily_deaths, info_df[i,]$Deaths - info_df[i-1,]$Deaths)
+    daily_recovered <- c(daily_recovered, info_df[i,]$Recovered - info_df[i-1,]$Recovered)
+  }
+  
+  info_df[2:nrow(info_df),]$Daily_Confirmed <- daily_cases
+  info_df[2:nrow(info_df),]$Daily_Deaths <- daily_deaths
+  info_df[2:nrow(info_df),]$Daily_Recovered <- daily_recovered
+        
+   
+
+ 
+        fig <- plot_ly(info_df, x = ~ as.Date(Date), name = "Date")
+        
+        fig <- fig %>% 
+            add_lines(y = ~ Daily_Confirmed, name = "Confirmed Cases") %>% 
+            add_lines(y = ~ Daily_Recovered, name = "Recovered")
+            
+        
+        
+        
+        fig <- fig %>% layout(
+            title = paste("Daily Cases and Recovereds in", input$country),
+            xaxis = list(
+                title = "Date",
+                rangeselector = list(
+                    buttons = list(
+                        list (
+                            count = 3,
+                            label = "3 months",
+                            step = "month",
+                            stepmode = "backward"
+                        ),
+                        list (
+                            count = 6,
+                            label = "6 months",
+                            step = "month",
+                            stepmode = "backward"
+                        ),
+                        list (
+                            count = 1,
+                            label = "1 year",
+                            step = "year",
+                            stepmode = "backward"
+                        ),
+                        list (
+                            count = 1,
+                            label = "ytd",
+                            step = "year",
+                            stepmode = "todate"
+                        ),
+                        list(step = "all"))),
+                rangeslider = list(type = "date")),
+            yaxis = list(title = ""))
+        
+        fig
+       
+ 
+       
+  
+       
+      
+   
+
+})
+  
+
+
+
+```
+
+Row 
+----------
+### Daily Deaths
+
+```{r}
+
+renderPlotly({
+  
+   country_url <- "https://api.covid19api.com/countries"
+  countries <- GET(country_url) %>% content("text") %>% fromJSON() %>% as.data.frame()
+  
+  country_slug <- countries[countries$Country == input$country,]$Slug
+  
+  url <- paste0("https://api.covid19api.com/total/country/", country_slug)
+  info_df <- GET(url) %>% content("text") %>% fromJSON() %>% as.data.frame()
+  info_df$Daily_Confirmed <- NA
+  info_df[1,]$Daily_Confirmed <- 0
+  info_df$Daily_Deaths <- NA
+  info_df[1,]$Daily_Deaths <- 0
+  info_df$Daily_Recovered <- NA
+  info_df[1,]$Daily_Recovered <- 0
+  
+  daily_cases <- c()
+  daily_deaths <- c()
+  daily_recovered <- c()
+  for (i in seq(2, nrow(info_df))) {
+    daily_cases <- c(daily_cases, info_df[i,]$Confirmed - info_df[i-1,]$Confirmed)
+    daily_deaths <- c(daily_deaths, info_df[i,]$Deaths - info_df[i-1,]$Deaths)
+    daily_recovered <- c(daily_recovered, info_df[i,]$Recovered - info_df[i-1,]$Recovered)
+  }
+  
+  info_df[2:nrow(info_df),]$Daily_Confirmed <- daily_cases
+  info_df[2:nrow(info_df),]$Daily_Deaths <- daily_deaths
+  info_df[2:nrow(info_df),]$Daily_Recovered <- daily_recovered
+  
+  
+  fig <- plot_ly(info_df, x = ~ as.Date(Date), name = "")
+  
+  fig <- fig %>% 
+    add_lines(y = ~ Daily_Deaths, name = "")
+   
+  
+  
+  
+  
+  fig <- fig %>% layout(
+    title = paste("Daily Deaths in", input$country),
+    xaxis = list(
+      title = "Date",
+      rangeselector = list(
+        buttons = list(
+          list (
+            count = 3,
+            label = "3 months",
+            step = "month",
+            stepmode = "backward"
+          ),
+          list (
+            count = 6,
+            label = "6 months",
+            step = "month",
+            stepmode = "backward"
+          ),
+          list (
+            count = 1,
+            label = "1 year",
+            step = "year",
+            stepmode = "backward"
+          ),
+          list (
+            count = 1,
+            label = "ytd",
+            step = "year",
+            stepmode = "todate"
+          ),
+          list(step = "all"))),
+      rangeslider = list(type = "date")),
+    yaxis = list(title = ""))
+  
+  fig
+        
+  
+  
+  
+})
+
+
+```
+
+
+
+
+
+
+
