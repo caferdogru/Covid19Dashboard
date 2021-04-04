@@ -14,6 +14,9 @@ library(httr)
 library(jsonlite)
 library(dplyr)
 library(plotly)
+library(prophet)
+library(dygraphs)
+library(shinyBS)
 ```
 
 Column {.sidebar}
@@ -25,11 +28,6 @@ Column {.sidebar}
        country_url <- "https://api.covid19api.com/countries"
        countries <- GET(country_url) %>% content("text") %>% fromJSON() %>% as.data.frame()
        selectInput(inputId = "country", label = "Select a Country to Plot", choices = sort(countries$Country))
-
- 
-
-
-
 ```
 
 
@@ -46,9 +44,6 @@ Row
 
  renderPlotly({
   
-   
-
-        
   country_url <- "https://api.covid19api.com/countries"
   countries <- GET(country_url) %>% content("text") %>% fromJSON() %>% as.data.frame()
         
@@ -77,17 +72,13 @@ Row
   info_df[2:nrow(info_df),]$Daily_Deaths <- daily_deaths
   info_df[2:nrow(info_df),]$Daily_Recovered <- daily_recovered
         
-   
-
  
         fig <- plot_ly(info_df, x = ~ as.Date(Date), name = "Date")
         
         fig <- fig %>% 
             add_lines(y = ~ Daily_Confirmed, name = "Confirmed Cases") %>% 
             add_lines(y = ~ Daily_Recovered, name = "Recovered")
-            
-        
-        
+           
         
         fig <- fig %>% layout(
             title = paste("Daily Cases and Recovereds in", input$country),
@@ -124,13 +115,7 @@ Row
             yaxis = list(title = ""))
         
         fig
-       
- 
-       
-  
-       
-      
-   
+         
 
 })
   
@@ -179,9 +164,6 @@ renderPlotly({
   
   fig <- fig %>% 
     add_lines(y = ~ Daily_Deaths, name = "")
-   
-  
-  
   
   
   fig <- fig %>% layout(
@@ -221,13 +203,78 @@ renderPlotly({
   fig
         
   
-  
-  
 })
 
 
 ```
+Make Predictions
+================================
 
+Column {.sidebar}
+---------------------------------------
+
+### 
+
+```{r}
+      country_url <- "https://api.covid19api.com/countries"
+      countries <- GET(country_url) %>% content("text") %>% fromJSON() %>% as.data.frame()
+        selectInput(inputId = "country_p", label = "Select a Country", choices = sort(countries$Country))
+        selectInput(inputId = "category", label = "Select a Category", choices = c("Confirmed", "Deaths"))
+        selectInput(inputId = "period", label = "Select a Period", choices = c("1 Month","3 Months","5 Months"))
+        selectInput(inputId = "changepoint", label = "Changepoint Prior Scale", choices = c(0.001, 0.01, 0.1,0.05, 0.5), selected = 0.05)
+        selectInput(inputId = "seasonality", label = "Seasonality Prior Scale", choices = c(0.1, 0.5,1,5,10), selected = 10)
+        selectInput(inputId = "holidays", label = "Holidays Prior Scale", choices = c(0.1, 0.5,1,5,10), selected = 10)
+        selectInput(inputId = "seasonality_mode", label = "Seasonality Mode", choices = c("Additive", "Multiplicative"), selected = "Additive")
+      
+        bsTooltip(id = "changepoint", trigger = "hover", title = "Changepoint Prior Scale determines the flexibility of the trend, and in particular how much the trend changes at the trend changepoints.If it is too small, the trend will be underfit and variance that should have been modeled with trend changes will instead end up being handled with the noise term. If it is too large, the trend will overfit and in the most extreme case you can end up with the trend capturing yearly seasonality.(Default = 0.05)")
+        bsTooltip(id = "seasonality", trigger = "hover", title = "Seasonality Prior Scale controls the flexibility of the seasonality. Similarly, a large value allows the seasonality to fit large fluctuations, a small value shrinks the magnitude of the seasonality. (Default = 10)")
+        bsTooltip(id = "holidays", trigger = "hover", title = "Holidays Prior Scale controls flexibility to fit holiday effects. Similar to seasonality_prior_scale, it defaults to 10.0 which applies basically no regularization, since we usually have multiple observations of holidays and can do a good job of estimating their effects. This could also be tuned on a range of [0.01, 10] as with seasonality_prior_scale.")
+        bsTooltip(id = "seasonality_mode", trigger = "hover", title =  "Options are ['additive', 'multiplicative']. Default is 'additive', but many business time series will have multiplicative seasonality. This is best identified just from looking at the time series and seeing if the magnitude of seasonal fluctuations grows with the magnitude of the time series (see the documentation here on multiplicative seasonality), but when that isn’t possible, it could be tuned.")
+    
+```
+
+Row 
+---------------------------
+
+### Prediction Chart
+
+```{r}
+
+
+  renderDygraph({
+    
+country_url <- "https://api.covid19api.com/countries"
+countries <- GET(country_url) %>% content("text") %>% fromJSON() %>% as.data.frame()
+       
+country_slug <- countries[countries$Country == input$country_p,]$Slug
+
+url <- paste0("https://api.covid19api.com/total/country/", country_slug)
+info_df <- GET(url) %>% content("text") %>% fromJSON() %>% as.data.frame()
+
+predict_data <- info_df[,c("Date", input$category)]
+  
+colnames(predict_data) <- c("ds", "y")
+  
+predict_data$ds <- as.Date(predict_data$ds)
+  
+model <- prophet(predict_data, changepoint.prior.scale = as.numeric(input$changepoint), seasonality.prior.scale = as.numeric(input$seasonality), holidays.prior.scale = as.numeric(input$holidays), seasonality.mode = tolower(input$seasonality_mode))
+
+
+time_period <- case_when(input$period == "1 Month" ~ 30, input$period == "3 Months" ~ 90, input$period == "5 Months" ~ 150)
+  
+future_predicts <- make_future_dataframe(model, periods = time_period)
+
+forecast <- predict(model, future_predicts)
+
+    
+dyplot.prophet(model, forecast)%>%
+      dyOptions(maxNumberWidth = 20)
+    
+  })
+
+
+
+```
 
 
 
