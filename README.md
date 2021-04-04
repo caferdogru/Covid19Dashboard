@@ -1,2 +1,2 @@
 # Covid19Dashboard
- https://cafer-dogru.shinyapps.io/CovidDashboard/
+https://cafer-dogru.shinyapps.io/covid19dashboard/
