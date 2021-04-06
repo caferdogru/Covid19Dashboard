@@ -207,6 +207,89 @@ renderPlotly({
 
 
 ```
+
+
+World Map
+==========================
+
+Row {data-height = 650}
+--------------------------
+
+### World Map
+
+```{r}
+
+renderLeaflet({
+  
+countries_shp <- geojson_read("countries.geo.json", what = "sp")
+countries_shp@data[countries_shp@data$name == "Russia",]$name <- "Russian Federation"
+countries_shp@data[countries_shp@data$name == "Republic of Serbia",]$name <- "Serbia"
+
+
+
+world_url <- "https://api.covid19api.com/summary"
+world_list <- GET(world_url) %>% content("text") %>% fromJSON() 
+world_df <- world_list[4]
+
+summary_df <- world_df[["Countries"]]
+summary_df <- summary_df %>% select(c("Country", "TotalConfirmed", "TotalDeaths"))
+
+## Correcting names of some of the countries
+
+summary_df[summary_df$Country == "Venezuela (Bolivarian Republic)",]$Country <- "Venezuela"
+summary_df[summary_df$Country == "Congo (Kinshasa)",]$Country <- "Democratic Republic of the Congo"
+summary_df[summary_df$Country == "Congo (Brazzaville)",]$Country <- "Republic of the Congo"
+summary_df[summary_df$Country == "Tanzania, United Republic of",]$Country <- "United Republic of Tanzania"
+summary_df[summary_df$Country == "Côte d'Ivoire",]$Country <- "Ivory Coast"
+summary_df[summary_df$Country == "Syrian Arab Republic (Syria)",]$Country <- "Syria"
+summary_df[summary_df$Country == "Iran, Islamic Republic of",]$Country <- "Iran"
+summary_df[summary_df$Country == "Viet Nam",]$Country <- "Vietnam"
+summary_df[summary_df$Country == "Macedonia, Republic of",]$Country <- "Macedonia"
+summary_df[summary_df$Country == "Korea (South)",]$Country <- "South Korea"
+summary_df[summary_df$Country == "Republic of Kosovo",]$Country <- "Kosovo"
+summary_df[summary_df$Country == "Guinea-Bissau",]$Country <- "Guinea Bissau"
+summary_df[summary_df$Country == "Lao PDR",]$Country <- "Laos"
+summary_df[summary_df$Country == "Taiwan, Republic of China",]$Country <- "Taiwan"
+summary_df[summary_df$Country == "Guyana",]$Country <- "French Guiana"
+
+
+data_Map <- countries_shp[countries_shp$name %in% summary_df$Country,]
+
+data_Map@data$case_numbers <- summary_df$TotalConfirmed[match(data_Map@data$name, summary_df$Country)]
+data_Map@data$death_numbers <- summary_df$TotalDeaths[match(data_Map@data$name, summary_df$Country)]
+
+
+
+mytext <- paste(
+  "Country:", data_Map@data$name, "<br>",
+  "Total Confirmed Cases:", data_Map@data$case_numbers,"<br>",
+  "Total Deaths:", data_Map@data$death_numbers
+) %>% 
+   lapply(htmltools::HTML)
+
+pal <- colorBin("YlOrRd", domain = data_Map@data$numbers, bins = c(0,10000,50000,100000,500000,1000000, 50000000))
+
+leaflet(data_Map) %>%
+  addTiles(options = tileOptions(minZoom = 1.5, maxZoom = 18)) %>% 
+  addPolygons(fillColor = ~pal(data_Map@data$case_numbers),
+              color = "white",
+              stroke = T,
+              opacity = 1,
+              fillOpacity = 0.9, 
+              weight = 0.3,
+              dashArray = 1,
+              label = mytext,
+              labelOptions = labelOptions(textsize = 15),
+              highlightOptions = highlightOptions(weight = 3, color = "grey", dashArray = "", fillOpacity = 0.7, bringToFront = TRUE)) %>%
+  addLegend(pal = pal, values = ~density, opacity = 0.7, title = NULL,
+  position = "bottomright") 
+  
+})
+```
+
+
+
+
 Make Predictions
 ================================
 
