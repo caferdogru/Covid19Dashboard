@@ -17,6 +17,8 @@ library(plotly)
 library(prophet)
 library(dygraphs)
 library(shinyBS)
+library(leaflet)
+library(geojsonio)
 ```
 
 Column {.sidebar}
